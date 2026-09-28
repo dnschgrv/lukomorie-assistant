@@ -1,0 +1,8 @@
+.env
+data/assistant.sqlite3
+__pycache__/
+*.pyc
+.deps/
+.deploy/
+logs/
+*.log

@@ -1,0 +1,26 @@
+[Unit]
+Description=Lukomorie AI Assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lukomorie-ai
+Group=lukomorie-ai
+WorkingDirectory=/opt/lukomorie-assistant
+EnvironmentFile=/etc/lukomorie-assistant.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=/opt/lukomorie-assistant/.venv/bin/python -m app.ingest
+ExecStart=/opt/lukomorie-assistant/.venv/bin/python -m app.server
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/lukomorie-assistant/data
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
