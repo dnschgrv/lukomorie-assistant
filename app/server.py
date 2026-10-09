@@ -65,12 +65,17 @@ def _mentions_package(text: str) -> bool:
     return bool(re.search(r"\b(?:путевк\w*|отдых\w*|лечени\w*|питани\w*)\b", lowered))
 
 
+def _people_label(count: int) -> str:
+    ending = "человека" if count % 10 in {2, 3, 4} and count % 100 not in {12, 13, 14} else "человек"
+    return f"{count} {ending}"
+
+
 def _package_total_answer(people: int, days: int | None) -> str:
     if days is None:
         total = 5100 * people
         total_text = f"{total:,}".replace(",", " ")
         return (f"Для {people} гостей путёвка стоит {total_text} ₽ за один день "
-                f"({people} гостей × 5 100 ₽). В расчёте — по одному месту на каждого гостя в двухместных номерах. "
+                f"({_people_label(people)} × 5 100 ₽). В расчёте — по одному месту на каждого гостя в двухместных номерах. "
                 "В тариф входят проживание, трёхразовое питание и лечение по назначению врача. "
                 "Прейскурант действует с 01.01.2026. Скажите количество дней — посчитаю полную стоимость.")
     per_person = days * 5100
@@ -78,7 +83,7 @@ def _package_total_answer(people: int, days: int | None) -> str:
     total_text = f"{total:,}".replace(",", " ")
     per_person_text = f"{per_person:,}".replace(",", " ")
     return (f"Для {people} гостей путёвка на {days} дней стоит {total_text} ₽ "
-            f"({days} дней × {people} гостей × 5 100 ₽). На одного человека — {per_person_text} ₽. "
+            f"({days} дней × {_people_label(people)} × 5 100 ₽). На одного человека — {per_person_text} ₽. "
             "В тариф входят проживание, трёхразовое питание и лечение по назначению врача. "
             "Прейскурант действует с 01.01.2026.")
 

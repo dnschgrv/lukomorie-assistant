@@ -54,7 +54,7 @@ class RagTests(unittest.TestCase):
         ]
         answer = direct_answer("2 клиента", history)
         self.assertIn("51 000 ₽", answer)
-        self.assertIn("5 дней × 2 гостей × 5 100 ₽", answer)
+        self.assertIn("5 дней × 2 человека × 5 100 ₽", answer)
 
     def test_package_followup_understands_words(self):
         history = [{"role": "user", "content": "Путевка на 7 дней"}]
