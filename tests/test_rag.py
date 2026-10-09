@@ -1,6 +1,7 @@
 import unittest
+from unittest.mock import patch
 from app.rag import KnowledgeBase, normalize
-from app.server import direct_answer, web_fallback_kind
+from app.server import direct_answer, local_answer_from_hits, web_fallback_kind
 
 
 class RagTests(unittest.TestCase):
@@ -15,6 +16,17 @@ class RagTests(unittest.TestCase):
         hits = self.kb.search("Сколько стоит соляная камера?")
         self.assertIn("300 руб", hits[0].content)
 
+    def test_strong_lexical_match_does_not_call_embeddings(self):
+        with patch("app.rag.embed", side_effect=AssertionError("embedding must not be called")):
+            hits = self.kb.search("Сколько стоит плазмолифтинг?")
+        self.assertEqual(hits[0].title, "Плазмолифтинг")
+
+    def test_local_fallback_uses_retrieved_fact(self):
+        hits = self.kb.search("Сколько стоит плазмолифтинг?")
+        answer = local_answer_from_hits(hits)
+        self.assertIn("2000 руб", answer)
+        self.assertNotIn("Сервис временно недоступен", answer)
+
     def test_generic_massage_price_is_concise(self):
         answer = self.kb.price_answer("Сколько стоит массаж?")
         self.assertIn("видов массажа", answer)
@@ -28,6 +40,11 @@ class RagTests(unittest.TestCase):
         answer = self.kb.price_answer("Цена массажа спины")
         self.assertIn("700 ₽", answer)
         self.assertIn("20 мин", answer)
+
+    def test_exact_non_massage_price_is_local(self):
+        answer = self.kb.price_answer("Сколько стоит плазмолифтинг?")
+        self.assertIn("2 000 ₽", answer)
+        self.assertIn("Прейскурант действует с 01.06.2025", answer)
 
     def test_package_retrieval(self):
         hits = self.kb.search("цена путевки двухместный номер")

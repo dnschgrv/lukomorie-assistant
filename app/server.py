@@ -29,6 +29,16 @@ def web_fallback_kind(question: str) -> str | None:
     return None
 
 
+def local_answer_from_hits(hits) -> str:
+    """Return a useful database fact when generation is temporarily unavailable."""
+    if not hits:
+        return config.FALLBACK
+    content = hits[0].content.strip()
+    return ("Сейчас не удалось сформировать расширенный ответ, но в базе санатория указано: "
+            f"{content} Если нужна дополнительная проверка, позвоните администратору: "
+            "8 (35363) 4-33-56 или 8 (800) 500-28-40.")
+
+
 def _person_count(text: str) -> int | None:
     lowered = text.lower().replace("ё", "е")
     match = re.search(r"\b(\d{1,2})\s*(?:человек|человека|человеку|гостя|гостей|клиента|клиентов)\b", lowered)
@@ -272,8 +282,8 @@ class Handler(BaseHTTPRequestHandler):
             result = answer(question, context, history)
         except OpenAIError as exc:
             # The question itself is deliberately not logged.
-            print(f"OpenAI request failed: {exc}")
-            return self.json_response(503, {"answer": "Сервис временно недоступен. Позвоните администратору: 8 (35363) 4-33-56 или 8 (800) 500-28-40."})
+            print(f"OpenAI request failed: {exc}", flush=True)
+            return self.json_response(200, {"answer": local_answer_from_hits(hits), "sources": [hits[0].source]})
         if not history:
             KB.put_cached(question, result)
         sources = []

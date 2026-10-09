@@ -127,6 +127,18 @@ class KnowledgeBase:
             return (f"В прейскуранте есть {len(massage_services)} видов массажа стоимостью от {min(prices)} до {max(prices)} ₽ за процедуру. "
                     f"Например: {', '.join(examples)}. Уточните, пожалуйста, какую зону или вид массажа вы имеете в виду — назову точную цену и длительность. "
                     "Прейскурант действует с 01.06.2025.")
+        exact = [item for item in services if normalize(item["name"]) in normalized]
+        if exact:
+            item = sorted(exact, key=lambda service: len(normalize(service["name"])), reverse=True)[0]
+            price_text = f"{item['price_rub']:,}".replace(",", " ")
+            status = {
+                "available": "По прейскуранту ограничивающей пометки нет.",
+                "limited": "В прейскуранте есть ограничивающая пометка; доступность нужно уточнить у администратора.",
+                "unavailable": "По пометке прейскуранта услуга сейчас недоступна.",
+            }[item["status"]]
+            return (f"{item['name']} стоит {price_text} ₽ за одну процедуру. "
+                    f"Продолжительность: {item.get('duration', 'не указана')}. {status} "
+                    "Прейскурант действует с 01.06.2025.")
         return None
 
     def ensure_loaded(self, rebuild: bool = False):
@@ -157,20 +169,28 @@ class KnowledgeBase:
         limit = limit or config.TOP_K
         rows = self.db.execute("SELECT title, content, source, embedding FROM chunks WHERE id != '__version__'").fetchall()
         qtokens = tokens(query)
-        qvec = None
-        if config.OPENAI_API_KEY and any(r[3] for r in rows):
-            try:
-                qvec = embed([query])[0]
-            except Exception:
-                qvec = None
-        scored = []
         normalized_query = normalize(query)
+        lexical = []
         for title, content, source, raw_vec in rows:
             hay = tokens(title + " " + content)
             overlap = len(qtokens & hay) / max(1, len(qtokens))
             phrase = 0.45 if normalized_query and normalized_query in normalize(title + " " + content) else 0.0
+            lexical.append((overlap + phrase, title, content, source, raw_vec))
+
+        # Exact and near-exact questions should not depend on a second network call.
+        # Semantic embeddings are only a fallback when lexical evidence is weak.
+        best_lexical = max((item[0] for item in lexical), default=0.0)
+        qvec = None
+        if best_lexical < 0.55 and config.OPENAI_API_KEY and any(item[4] for item in lexical):
+            try:
+                qvec = embed([query])[0]
+            except Exception:
+                qvec = None
+
+        scored = []
+        for lexical_score, title, content, source, raw_vec in lexical:
             semantic = cosine(qvec, json.loads(raw_vec)) if qvec and raw_vec else 0.0
-            score = max(overlap + phrase, semantic)
+            score = max(lexical_score, semantic)
             scored.append(Hit(score, content, source, title))
         return sorted(scored, key=lambda x: x.score, reverse=True)[:limit]
 

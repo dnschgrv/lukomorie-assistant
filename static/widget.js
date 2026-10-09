@@ -35,7 +35,9 @@
     e.preventDefault(); const text=input.value.trim(); if (!text) return; input.value=''; add(text,'user');
     const wait=addTyping(); form.classList.add('busy');
     try {
-      const res=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-6)})});
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),30000);
+      const res=await fetch(api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,history:history.slice(-6)}),signal:controller.signal});
+      clearTimeout(timer);
       const data=await res.json(); wait.remove(); add(data.answer || 'Не удалось получить ответ.','bot');
       history.push({role:'user',content:text},{role:'assistant',content:data.answer || ''});
     } catch (_) { wait.remove(); add('Сервис временно недоступен. Позвоните: 8 (35363) 4-33-56 или 8 (800) 500-28-40.','bot'); }

@@ -1,4 +1,5 @@
 import json
+import time
 import urllib.error
 import urllib.request
 from . import config
@@ -8,7 +9,7 @@ class OpenAIError(RuntimeError):
     pass
 
 
-def _post(path: str, payload: dict) -> dict:
+def _post(path: str, payload: dict, *, timeout: float | None = None, retries: int | None = None) -> dict:
     if not config.OPENAI_API_KEY:
         raise OpenAIError("OPENAI_API_KEY is not configured")
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -18,20 +19,31 @@ def _post(path: str, payload: dict) -> dict:
         headers={"Authorization": f"Bearer {config.OPENAI_API_KEY}", "Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=55) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", "replace")[:1000]
-        raise OpenAIError(f"OpenAI HTTP {exc.code}: {detail}") from exc
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise OpenAIError("OpenAI API is temporarily unavailable") from exc
+    timeout = config.OPENAI_TIMEOUT if timeout is None else timeout
+    retries = config.OPENAI_RETRIES if retries is None else retries
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", "replace")[:1000]
+            if exc.code not in {429, 500, 502, 503, 504} or attempt >= retries:
+                raise OpenAIError(f"OpenAI HTTP {exc.code}: {detail}") from exc
+            last_error = exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt >= retries:
+                break
+        time.sleep(0.35 * (attempt + 1))
+    raise OpenAIError("OpenAI API is temporarily unavailable") from last_error
 
 
 def embed(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
-    result = _post("/embeddings", {"model": config.EMBEDDING_MODEL, "input": texts, "encoding_format": "float"})
+    result = _post("/embeddings", {"model": config.EMBEDDING_MODEL, "input": texts, "encoding_format": "float"},
+                   timeout=config.EMBEDDING_TIMEOUT, retries=0)
     return [item["embedding"] for item in sorted(result["data"], key=lambda x: x["index"])]
 
 
