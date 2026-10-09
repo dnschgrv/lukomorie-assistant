@@ -7,7 +7,7 @@ KB_PATH = DATA_DIR / "knowledge.json"
 DB_PATH = DATA_DIR / "assistant.sqlite3"
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5-mini").strip()
+CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5.6-terra").strip()
 EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small").strip()
 ALLOWED_ORIGINS = {x.strip().rstrip("/") for x in os.getenv("ALLOWED_ORIGINS", "https://aolukomorie56.ru,https://www.aolukomorie56.ru,https://bot.aolukomorie56.ru").split(",") if x.strip()}
 CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "86400"))

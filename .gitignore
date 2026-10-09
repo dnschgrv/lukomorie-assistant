@@ -6,3 +6,9 @@ __pycache__/
 .deploy/
 logs/
 *.log
+tools/node_modules/
+tools/__pycache__/
+.codex-finalizer/
+.pptx-build/
+.pptx-render/
+.docx-render/
