@@ -26,6 +26,7 @@ class RagTests(unittest.TestCase):
         answer = local_answer_from_hits(hits)
         self.assertIn("2000 руб", answer)
         self.assertNotIn("Сервис временно недоступен", answer)
+        self.assertNotIn("01.06.2025", answer)
 
     def test_generic_massage_price_is_concise(self):
         answer = self.kb.price_answer("Сколько стоит массаж?")
@@ -44,7 +45,15 @@ class RagTests(unittest.TestCase):
     def test_exact_non_massage_price_is_local(self):
         answer = self.kb.price_answer("Сколько стоит плазмолифтинг?")
         self.assertIn("2 000 ₽", answer)
-        self.assertIn("Прейскурант действует с 01.06.2025", answer)
+        self.assertNotIn("01.06.2025", answer)
+
+    def test_price_answers_do_not_expose_tariff_dates(self):
+        answers = [
+            self.kb.price_answer("Сколько стоит массаж головы?"),
+            direct_answer("Сколько стоит путевка?"),
+            direct_answer("Сколько стоит проживание?"),
+        ]
+        self.assertTrue(all("Прейскурант действует" not in answer for answer in answers))
 
     def test_package_retrieval(self):
         hits = self.kb.search("цена путевки двухместный номер")

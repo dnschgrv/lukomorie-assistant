@@ -121,12 +121,11 @@ class KnowledgeBase:
                 item = ranked[0][1]
                 price_text = f"{item['price_rub']:,}".replace(",", " ")
                 return (f"{item['name']} стоит {price_text} ₽, продолжительность — {item.get('duration', 'не указана')}. "
-                        "Цена указана за одну процедуру по прейскуранту с 01.06.2025.")
+                        "Цена указана за одну процедуру.")
             prices = [item["price_rub"] for item in massage_services]
             examples = ["массаж головы — 350 ₽", "воротниковой зоны — 500 ₽", "спины — 700 ₽", "лица — 500 ₽", "стопы и голени — 400 ₽"]
             return (f"В прейскуранте есть {len(massage_services)} видов массажа стоимостью от {min(prices)} до {max(prices)} ₽ за процедуру. "
-                    f"Например: {', '.join(examples)}. Уточните, пожалуйста, какую зону или вид массажа вы имеете в виду — назову точную цену и длительность. "
-                    "Прейскурант действует с 01.06.2025.")
+                    f"Например: {', '.join(examples)}. Уточните, пожалуйста, какую зону или вид массажа вы имеете в виду — назову точную цену и длительность.")
         exact = [item for item in services if normalize(item["name"]) in normalized]
         if exact:
             item = sorted(exact, key=lambda service: len(normalize(service["name"])), reverse=True)[0]
@@ -137,8 +136,7 @@ class KnowledgeBase:
                 "unavailable": "По пометке прейскуранта услуга сейчас недоступна.",
             }[item["status"]]
             return (f"{item['name']} стоит {price_text} ₽ за одну процедуру. "
-                    f"Продолжительность: {item.get('duration', 'не указана')}. {status} "
-                    "Прейскурант действует с 01.06.2025.")
+                    f"Продолжительность: {item.get('duration', 'не указана')}. {status}")
         return None
 
     def ensure_loaded(self, rebuild: bool = False):
