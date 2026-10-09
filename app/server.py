@@ -51,7 +51,7 @@ def _person_count(text: str) -> int | None:
 
 def _package_days(text: str) -> int | None:
     lowered = text.lower().replace("ё", "е")
-    if not re.search(r"\b(?:путевк\w*|отдых\w*|лечени\w*|питани\w*)\b", lowered):
+    if not _mentions_package(lowered):
         return None
     match = re.search(r"\b(\d{1,3})\s*(?:день|дня|дней|сутки|суток)\b", lowered)
     if not match:
@@ -60,21 +60,19 @@ def _package_days(text: str) -> int | None:
     return days if 1 <= days <= 365 else None
 
 
-def _conversation_calculation(question: str, history: list[dict]) -> str | None:
-    """Continue a recent deterministic package calculation without calling OpenAI."""
-    people = _person_count(question)
-    if people is None:
-        return None
-    days = _package_days(question)
+def _mentions_package(text: str) -> bool:
+    lowered = text.lower().replace("ё", "е")
+    return bool(re.search(r"\b(?:путевк\w*|отдых\w*|лечени\w*|питани\w*)\b", lowered))
+
+
+def _package_total_answer(people: int, days: int | None) -> str:
     if days is None:
-        for item in reversed(history[-6:]):
-            if item.get("role") != "user":
-                continue
-            days = _package_days(str(item.get("content", ""))[:1000])
-            if days is not None:
-                break
-    if days is None:
-        return None
+        total = 5100 * people
+        total_text = f"{total:,}".replace(",", " ")
+        return (f"Для {people} гостей путёвка стоит {total_text} ₽ за один день "
+                f"({people} гостей × 5 100 ₽). В расчёте — по одному месту на каждого гостя в двухместных номерах. "
+                "В тариф входят проживание, трёхразовое питание и лечение по назначению врача. "
+                "Прейскурант действует с 01.01.2026. Скажите количество дней — посчитаю полную стоимость.")
     per_person = days * 5100
     total = per_person * people
     total_text = f"{total:,}".replace(",", " ")
@@ -83,6 +81,27 @@ def _conversation_calculation(question: str, history: list[dict]) -> str | None:
             f"({days} дней × {people} гостей × 5 100 ₽). На одного человека — {per_person_text} ₽. "
             "В тариф входят проживание, трёхразовое питание и лечение по назначению врача. "
             "Прейскурант действует с 01.01.2026.")
+
+
+def _conversation_calculation(question: str, history: list[dict]) -> str | None:
+    """Continue a recent deterministic package calculation without calling OpenAI."""
+    people = _person_count(question)
+    if people is None:
+        return None
+    days = _package_days(question)
+    has_package_context = _mentions_package(question)
+    for item in reversed(history[-6:]):
+        if item.get("role") != "user":
+            continue
+        previous = str(item.get("content", ""))[:1000]
+        has_package_context = has_package_context or _mentions_package(previous)
+        if days is None:
+            days = _package_days(previous)
+        if has_package_context and days is not None:
+            break
+    if not has_package_context:
+        return None
+    return _package_total_answer(people, days)
 
 
 def direct_answer(question: str, history: list[dict] | None = None) -> str | None:
@@ -106,6 +125,9 @@ def direct_answer(question: str, history: list[dict] | None = None) -> str | Non
     wants_full_package = bool(words & package_words) and bool(words & {"лечение", "лечением", "питание", "питанием", "путевка", "путёвка"})
     if wants_full_package:
         days = int(days_match.group(1)) if days_match else None
+        people = _person_count(question)
+        if people:
+            return _package_total_answer(people, days)
         if days:
             total = 5100 * days
             total_text = f"{total:,}".replace(",", " ")
