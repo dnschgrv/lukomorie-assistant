@@ -137,6 +137,23 @@ class KnowledgeBase:
             }[item["status"]]
             return (f"{item['name']} стоит {price_text} ₽ за одну процедуру. "
                     f"Продолжительность: {item.get('duration', 'не указана')}. {status}")
+        if any(word in normalized.split() for word in ("процедура", "процедуры", "процедур", "услуга", "услуги", "услуг")):
+            example_names = [
+                "Прием лечащего врача",
+                "Повторный прием лечащего врача",
+                "Грязевые процедуры",
+                "Капельница",
+                "Соляная камера (галотерапия)",
+            ]
+            by_name = {item["name"]: item for item in services if item["status"] == "available"}
+            examples = []
+            for name in example_names:
+                item = by_name.get(name)
+                if item:
+                    price_text = f"{item['price_rub']:,}".replace(",", " ")
+                    examples.append(f"{name.lower()} — {price_text} ₽")
+            return ("Стоимость зависит от конкретной процедуры. Например: " + "; ".join(examples) + ". "
+                    "Назовите интересующую процедуру — подскажу точную цену, продолжительность и краткую информацию о ней.")
         return None
 
     def ensure_loaded(self, rebuild: bool = False):

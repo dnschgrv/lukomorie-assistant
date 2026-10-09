@@ -47,6 +47,14 @@ class RagTests(unittest.TestCase):
         self.assertIn("2 000 ₽", answer)
         self.assertNotIn("01.06.2025", answer)
 
+    def test_generic_procedure_prices_only_show_available_examples(self):
+        answer = self.kb.price_answer("Привет! Сколько стоят процедуры?")
+        self.assertIn("Стоимость зависит от конкретной процедуры", answer)
+        self.assertIn("соляная камера", answer)
+        self.assertNotIn("недоступ", answer.lower())
+        self.assertNotIn("Интердин", answer)
+        self.assertNotIn("Электрокардиограмма", answer)
+
     def test_price_answers_do_not_expose_tariff_dates(self):
         answers = [
             self.kb.price_answer("Сколько стоит массаж головы?"),
