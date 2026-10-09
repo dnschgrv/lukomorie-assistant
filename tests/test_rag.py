@@ -47,6 +47,23 @@ class RagTests(unittest.TestCase):
         self.assertIn("25 500 ₽", answer)
         self.assertIn("одного человека", answer)
 
+    def test_package_followup_uses_conversation_history(self):
+        history = [
+            {"role": "user", "content": "Сколько стоит путевка на 5 дней?"},
+            {"role": "assistant", "content": "Для одного человека путёвка стоит 25 500 ₽."},
+        ]
+        answer = direct_answer("2 клиента", history)
+        self.assertIn("51 000 ₽", answer)
+        self.assertIn("5 дней × 2 гостей × 5 100 ₽", answer)
+
+    def test_package_followup_understands_words(self):
+        history = [{"role": "user", "content": "Путевка на 7 дней"}]
+        answer = direct_answer("Нас трое", history)
+        self.assertIn("107 100 ₽", answer)
+
+    def test_people_without_package_context_does_not_invent_calculation(self):
+        self.assertIsNone(direct_answer("2 клиента", []))
+
     def test_accommodation_price(self):
         self.assertIn("2 000 ₽", direct_answer("Сколько стоит проживание?"))
 

@@ -29,8 +29,68 @@ def web_fallback_kind(question: str) -> str | None:
     return None
 
 
-def direct_answer(question: str) -> str | None:
+def _person_count(text: str) -> int | None:
+    lowered = text.lower().replace("ё", "е")
+    match = re.search(r"\b(\d{1,2})\s*(?:человек|человека|человеку|гостя|гостей|клиента|клиентов)\b", lowered)
+    if match:
+        count = int(match.group(1))
+        return count if 1 <= count <= 30 else None
+    forms = {
+        "один": 1, "одного": 1, "одна": 1,
+        "двое": 2, "двоих": 2, "два": 2, "двух": 2,
+        "трое": 3, "троих": 3, "три": 3, "трех": 3,
+        "четверо": 4, "четверых": 4, "четыре": 4, "четырех": 4,
+        "пятеро": 5, "пятерых": 5, "пять": 5,
+    }
+    if re.search(r"\b(?:человек|человека|гостя|гостей|клиента|клиентов|нас|на)\b", lowered):
+        for word, count in forms.items():
+            if re.search(rf"\b{word}\b", lowered):
+                return count
+    return None
+
+
+def _package_days(text: str) -> int | None:
+    lowered = text.lower().replace("ё", "е")
+    if not re.search(r"\b(?:путевк\w*|отдых\w*|лечени\w*|питани\w*)\b", lowered):
+        return None
+    match = re.search(r"\b(\d{1,3})\s*(?:день|дня|дней|сутки|суток)\b", lowered)
+    if not match:
+        return None
+    days = int(match.group(1))
+    return days if 1 <= days <= 365 else None
+
+
+def _conversation_calculation(question: str, history: list[dict]) -> str | None:
+    """Continue a recent deterministic package calculation without calling OpenAI."""
+    people = _person_count(question)
+    if people is None:
+        return None
+    days = _package_days(question)
+    if days is None:
+        for item in reversed(history[-6:]):
+            if item.get("role") != "user":
+                continue
+            days = _package_days(str(item.get("content", ""))[:1000])
+            if days is not None:
+                break
+    if days is None:
+        return None
+    per_person = days * 5100
+    total = per_person * people
+    total_text = f"{total:,}".replace(",", " ")
+    per_person_text = f"{per_person:,}".replace(",", " ")
+    return (f"Для {people} гостей путёвка на {days} дней стоит {total_text} ₽ "
+            f"({days} дней × {people} гостей × 5 100 ₽). На одного человека — {per_person_text} ₽. "
+            "В тариф входят проживание, трёхразовое питание и лечение по назначению врача. "
+            "Прейскурант действует с 01.01.2026.")
+
+
+def direct_answer(question: str, history: list[dict] | None = None) -> str | None:
     """Handle common messages that have safe, deterministic answers."""
+    history = history or []
+    continued = _conversation_calculation(question, history)
+    if continued:
+        return continued
     normalized = " ".join(re.findall(r"[а-яёa-z]+", question.lower()))
     words = set(normalized.split())
     greetings = {"здравствуйте", "здравствуй", "привет", "добрый", "день", "вечер", "утро"}
@@ -157,7 +217,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, TypeError, json.JSONDecodeError):
             return self.json_response(400, {"error": "invalid_request", "answer": "Не удалось прочитать вопрос. Сформулируйте его короче."})
 
-        direct = direct_answer(question)
+        direct = direct_answer(question, history)
         if direct:
             return self.json_response(200, {"answer": direct, "sources": []})
 
