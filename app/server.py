@@ -261,7 +261,7 @@ class Handler(BaseHTTPRequestHandler):
 
         price = KB.price_answer(question)
         if price:
-            return self.json_response(200, {"answer": price, "sources": ["с 01.06.2025 Прейскурант на медуслуги отметка.xls"]})
+            return self.json_response(200, {"answer": price, "sources": ["Прейскурант медицинских услуг"]})
 
         cached = KB.get_cached(question) if not history else None
         if cached:
